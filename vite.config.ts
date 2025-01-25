@@ -1,21 +1,15 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import { defineConfig } from 'vite';
 import path from 'path';
 
-const config = {
+export default defineConfig({
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
-			$lib: path.resolve('./src/lib'),
 			$assets: path.resolve('./src/assets'),
 			$components: path.resolve('./src/components'),
-			$fa: '@fortawesome/fontawesome-free/svgs',
-		},
-	},
-	ssr: {
-		external: [ 
-			'algostack'
-		],
-	},
-};
-
-export default config;
+			$lib: path.resolve('./src/lib'),
+			$fa: '@fortawesome/fontawesome-free/svgs'
+		}
+	}
+});
