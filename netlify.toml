@@ -1,4 +1,6 @@
 [build]
   command = "npm run build"
   publish = ".netlify/functions-internal"
-  edge_functions = true
+
+[functions]
+  directory = ".netlify/functions-internal"
