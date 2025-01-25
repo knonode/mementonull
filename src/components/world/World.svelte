@@ -44,16 +44,28 @@
         // showMousePosition: true,
       },
     });
-    resize();
     
     const runner = Runner.create()
     Render.run(render);
     Runner.run(runner, engine);
     
-    
     const mouse = addMouse();
-    Composite.add(world, [mouse, walls, humans]);
     addWalls();
+    resize();
+    
+    // Add a triangular deflector at the top
+    const deflector = Bodies.polygon(w/2, -20, 3, 25, {  // 3 sides = triangle
+      isStatic: true,
+      angle: Math.PI * 0.5, // Point down
+      render: { 
+        visible: true,  // Optional: make it visible during testing
+        // fillStyle: '#FF0000'  // Uncomment to see it in red
+      }
+    });
+    
+    Composite.add(walls, deflector);
+    
+    Composite.add(world, [mouse, walls, humans]);
     addHuman();
 
     setInterval(addHuman, 1000)
@@ -110,7 +122,8 @@
   * ==================================================
   */
   function addHuman() {
-    const human = Ragdoll.create(w/2, -50, 0.25) as Composite;
+    // Spawn slightly higher to account for deflector
+    const human = Ragdoll.create(w/2, -80, 0.25) as Composite;
     Composite.add(humans, human);
   }
 
