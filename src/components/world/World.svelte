@@ -173,7 +173,7 @@
     <div class="info-row">
       <span class="label">Circulating Supply:</span>
       <span class="value">{circulatingSupply}</span>
-    </div>
+    </div>npm dev build
     
     <div class="info-row">
       <span class="label">Last txn:</span>

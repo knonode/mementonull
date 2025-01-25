@@ -12,12 +12,12 @@ const config = {
 	}),
 
 	kit: {
-		adapter: adapter({
-			edge: false,
-			split: false
-		}),
+		adapter: adapter(),
+		paths: {
+			base: ''
+		},
 		prerender: {
-			handleMissingId: 'ignore'
+			entries: ['/']
 		}
 	}
 };
