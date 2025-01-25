@@ -15,6 +15,9 @@ const config = {
 		adapter: adapter(),
 		paths: {
 			base: ''
+		},
+		prerender: {
+			entries: ['*']  // Prerender all routes
 		}
 	}
 };
