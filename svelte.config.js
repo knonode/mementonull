@@ -11,7 +11,13 @@ const config = {
 	}),
 
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			// If you have edge functions:
+			edge: false,
+			
+			// If you have serverless functions:
+			split: false
+		}),
 	},
 
 
