@@ -1,18 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" dark>
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
 		<meta name="viewport" content="width=device-width" />
-		
 
 		<!-- Meta tags -->
 		<title>Memento Mori</title>
 		<meta name="twitter:title" content="Memento Mori">
 		<meta name="twitter:description" content="...">
-		<meta name="twitter:image" content=" https://mememntomori.page/images/twitter.jpg">
+		<meta name="twitter:image" content="https://mememntomori.page/images/twitter.jpg">
 		<meta name="twitter:card" content="summary_large_image">
 
-		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
 		<meta name="theme-color" content="#8e6a47">
 		<meta name="msapplication-TileColor" content="#8e6a47">
 		<link rel="apple-touch-icon" sizes="180x180" href="%sveltekit.assets%/favicons/apple-touch-icon.png">
@@ -20,14 +19,11 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="%sveltekit.assets%/favicons/favicon-16x16.png">
 		<link rel="mask-icon" href="%sveltekit.assets%/favicons/safari-pinned-tab.svg" color="#4F40AA">
 		<link rel="manifest" href="%sveltekit.assets%/manifest.json" crossorigin="use-credentials">
-
 		
-		<script>window.global = window;</script>	
+		<script>window.global = window;</script>
 		%sveltekit.head%
 	</head>
-	<body>
-		<div>
-			%sveltekit.body%
-		</div>
+	<body data-sveltekit-preload="hover">
+		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>
