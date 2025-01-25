@@ -77,3 +77,49 @@ strong {
   font-weight: 800;
 }
 
+// Terminal text styles for MORI info panel
+.terminal-text {
+  font-family: monospace;
+  color: black;
+}
+
+.info-panel {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  z-index: 20;
+  
+  @media (max-width: 768px) {
+    top: 1rem;
+    left: 1rem;
+    font-size: 0.9em;
+  }
+
+  h1 {
+    font-size: 2.5em;
+    margin: 0 0 1rem 0;
+    font-weight: normal;
+    
+    @media (max-width: 768px) {
+      font-size: 1.8em;
+    }
+  }
+
+  .info-row {
+    margin: 0.5rem 0;
+    font-size: 1.2em;
+    
+    @media (max-width: 768px) {
+      font-size: 1em;
+    }
+  }
+
+  .label {
+    margin-right: 0.5rem;
+  }
+
+  .value {
+    font-weight: bold;
+  }
+}
+

@@ -23,6 +23,9 @@
   const walls = Composite.create();
   const humans = Composite.create();
 
+  let circulatingSupply = "Loading...";
+  let lastTx = "Loading...";
+
   /**
   * Init
   * ==================================================
@@ -81,9 +84,21 @@
   */
   function addWalls() {
     wallBodies = {
-      ground: Bodies.rectangle(w/2, h+20, w, 100, { isStatic: true }),
-      left: Bodies.rectangle(-50 , h/2, 100, h, { isStatic: true }),
-      right: Bodies.rectangle(w + 50 , h/2, 100, h, { isStatic: true }),
+      ground: Bodies.rectangle(w/2, h+1, w, 2, {
+        isStatic: true,
+        render: { 
+          visible: false,
+          opacity: 0
+        }
+      }),
+      left: Bodies.rectangle(-50 , h/2, 100, h, { 
+        isStatic: true,
+        render: { visible: false }
+      }),
+      right: Bodies.rectangle(w + 50 , h/2, 100, h, { 
+        isStatic: true,
+        render: { visible: false }
+      }),
     };
     Composite.add(walls, Object.values(wallBodies));
   }
@@ -136,7 +151,38 @@
   bind:clientHeight={h}
   bind:clientWidth={w}
   class="viewport"
-></div>
+>
+  <div class="info-panel terminal-text">
+    <h1>MEMENTO MORI</h1>
+    
+    <div class="info-row">
+      <span class="label">Unit:</span>
+      <span class="value">MORI</span>
+    </div>
+
+    <div class="info-row">
+      <span class="label">ASA ID:</span>
+      <span class="value">1018187012</span>
+    </div>
+    
+    <div class="info-row">
+      <span class="label">Total Supply:</span>
+      <span class="value">11.200.000.000</span>
+    </div>
+
+    <div class="info-row">
+      <span class="label">Circulating Supply:</span>
+      <span class="value">{circulatingSupply}</span>
+    </div>
+    
+    <div class="info-row">
+      <span class="label">Last txn:</span>
+      <span class="value">{lastTx}</span>
+    </div>
+    
+
+  </div>
+</div>
 
 
 <style lang="scss">
@@ -147,10 +193,24 @@
     left: 0;
     width: 100%;
     height: 100%;
-    // :global canvas {
-      // position: relative;
-      // z-index: 10;
-      // border: 1px solid var(--black);
-    // }
+    background-image: 
+      url('/backgrounds/mori-background1.svg'),
+      url('/backgrounds/mori-background2.svg');
+    background-position: 
+      bottom center,
+      bottom center;
+    background-repeat: no-repeat;
+    background-size: 
+      max(100%, min(100%, 960px)) auto,
+      max(100%, min(100%, 960px)) auto;
+  }
+
+  /* Optional: Add media queries for more control */
+  @media (max-width: 768px) {
+    .viewport {
+      background-size: 
+        1000px auto,  /* Fixed width for small screens */
+        1000px auto;
+    }
   }
 </style>
