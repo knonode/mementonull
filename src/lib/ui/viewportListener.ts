@@ -16,6 +16,9 @@ class ViewportListener {
   // Init the viewport
   // ----------------------------------------------
   init(viewport?: ViewportElement) {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
+    
     this.viewport = viewport;
     this.observer = new IntersectionObserver(
       this.intersects.bind(this), 
@@ -55,8 +58,8 @@ class ViewportListener {
     
   }
 
-
 }
 
-
-export default new ViewportListener();
+// Only create instance in browser environment
+const instance = typeof window !== 'undefined' ? new ViewportListener() : null;
+export default instance as ViewportListener;

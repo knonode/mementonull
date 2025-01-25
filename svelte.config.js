@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-netlify';
 import preprocess from 'svelte-preprocess';
 
+/** @type {import('@sveltejs/kit').Config} */
 const config = {
 	preprocess: preprocess({
 		scss: {
@@ -11,10 +12,14 @@ const config = {
 	}),
 
 	kit: {
-		adapter: adapter(),
-	},
-
-
+		adapter: adapter({
+			edge: false,
+			split: false
+		}),
+		prerender: {
+			handleMissingId: 'ignore'
+		}
+	}
 };
 
 export default config;
