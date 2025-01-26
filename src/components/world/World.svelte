@@ -124,7 +124,7 @@
   */
   function addHuman() {
     // Spawn slightly higher to account for deflector
-    const human = Ragdoll.create(w/2, -80, 0.25) as Composite;
+    const human = Ragdoll.create(w/2, -80, 0.25) as Matter.Composite;
     Composite.add(humans, human);
   }
 
@@ -185,9 +185,9 @@
     </div>
 
     <div class="info-row">
-      <span class="label">Circulating Supply:</span>
+      <span class="label">Circulating:</span>
       <span class="value">{circulatingSupply}</span>
-    </div>npm dev build
+    </div>
     
     <div class="info-row">
       <span class="label">Last txn:</span>
