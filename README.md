@@ -1,38 +1,24 @@
-# create-svelte
+# Memento Mori World Population Simulator
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+## Overview
+This is a world's first on-chain population simulator. Circulating supply is the current population number. Every hour newborn people minus deceased are added to circulating supply, following a curve based on United Nations Population Division data projections.
 
-## Creating a project
+The reserve account is funded to run until year 2100 or until reaching total supply or in case fee structure changes on Algorand protocol.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Concept
+A philosophical discussion conceived as an Algorand ASA with a fluctuating circulating supply pegged to the amount of people living on planet Earth at present time.
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+The project, being built on Algorand and closely tied to the monetary system as such, asks questions about the worth of a human life. One $MEMO represents one living human, and in principle every human being on the planet and orbiting it, is accredited with one $MEMO.
 
-# create a new project in my-app
-npm create svelte@latest my-app
-```
+## Important Note
+This token will never be made available for trading and is made only for educational and entertainment purposes. It has freeze and clawback enabled to keep options for further development open.
 
-## Developing
+## Project Accounts
+- **Creator Account:** `DEAXD24NWYIBUKALDZEMEMZCM6D4ANNTDB2VUKXOH3YO3SUONGZSXQZLGU`
+- **Reserve Account:** `LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ`
+- **Receiver Account (mementomori.algo):** `ORBISXYDPXH4MGICPYHQLLSHH7IYMXECPJIG5N5M3GMKZ7MHRLBFHZLOFE`
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+## Credits
+- **Concept:** Hampelman
+- **Development:** RunVnc (token script and population data curve)
+- **Special Thanks:** Null (ragdoll physics and website prototype)
