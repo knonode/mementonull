@@ -34,4 +34,20 @@ const options: OptionsProps = {
   },
 }
 const algostack = new AlgoStack(options, modules);
+
+const MORI_ASA_ID = '1018187012';
+const RESERVE_ADDRESS = 'LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ';  // Add the actual address
+
+algostack.getCirculatingSupply = async function() {
+  const response = await fetch(`https://mainnet-idx.algonode.cloud/v2/assets/${MORI_ASA_ID}`);
+  const data = await response.json();
+  return data.asset.circulatingSupply;
+}
+
+algostack.getLastTransaction = async function() {
+  const response = await fetch(`https://mainnet-idx.algonode.cloud/v2/accounts/${RESERVE_ADDRESS}/transactions?limit=1`);
+  const data = await response.json();
+  return data.transactions[0];
+}
+
 export default algostack;

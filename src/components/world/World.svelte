@@ -14,6 +14,8 @@
   import { onMount } from 'svelte'; 
   import Matter from 'matter-js';
   const { Composite } = Matter;
+  import { getCirculatingSupply, getLastTransaction } from '$lib/api/algorand';
+  import AboutOverlay from '../overlays/AboutOverlay.svelte';
   let viewport: HTMLElement;
   let engine: Engine;
   let render: Render;
@@ -27,6 +29,8 @@
   let circulatingSupply = "Loading...";
   let lastTx = "Loading...";
 
+  let isAboutOpen = false;
+  
   /**
   * Init
   * ==================================================
@@ -151,8 +155,32 @@
     Body.setPosition(wallBodies.right, { x: w+50, y: h/2 });
   }
 
+  async function updateAssetInfo() {
+    try {
+      // Get and format circulating supply
+      const supply = await getCirculatingSupply();
+      circulatingSupply = new Intl.NumberFormat().format(supply);
 
+      // Get and format last transaction
+      const txAmount = await getLastTransaction();
+      lastTx = txAmount;  // Now returns either formatted amount or error message directly
+    } catch (error) {
+      console.error('Error fetching asset info:', error);
+      circulatingSupply = "Error loading";
+      lastTx = "Error loading";
+    }
+  }
 
+  // Update every hour
+  onMount(() => {
+    updateAssetInfo();
+    const interval = setInterval(updateAssetInfo, 3600000);
+    return () => clearInterval(interval);
+  });
+
+  function toggleAbout() {
+    isAboutOpen = !isAboutOpen;
+  }
 
 </script>
 
@@ -167,7 +195,7 @@
   class="viewport"
 >
   <div class="info-panel terminal-text">
-    <h1>MEMENTO MORI</h1>
+    <h1>MEMENTO MORI WORLD POPULATION SIMULATOR</h1>
     
     <div class="info-row">
       <span class="label">Unit:</span>
@@ -176,7 +204,11 @@
 
     <div class="info-row">
       <span class="label">ASA ID:</span>
-      <span class="value">1018187012</span>
+      <span class="value">
+        <a href="https://allo.info/asset/1018187012/token" target="_blank" rel="noopener noreferrer">
+          1018187012
+        </a>
+      </span>
     </div>
     
     <div class="info-row">
@@ -193,11 +225,18 @@
       <span class="label">Last txn:</span>
       <span class="value">{lastTx}</span>
     </div>
+
+    <div class="info-row">
+      <span class="label">
+        <a href="#" class="value" on:click|preventDefault={toggleAbout}>About</a>
+      </span>
+    </div>
     
 
   </div>
 </div>
 
+<AboutOverlay isOpen={isAboutOpen} onClose={toggleAbout} />
 
 <style lang="scss">
   .viewport {
@@ -225,6 +264,15 @@
       background-size: 
         1000px auto,  /* Fixed width for small screens */
         1000px auto;
+    }
+  }
+
+  .value a {
+    color: inherit;
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
     }
   }
 </style>
