@@ -6,13 +6,14 @@
     Mouse,
     MouseConstraint,
     World,
-    Composite,
     Bodies,
     Body,
     Events,
   } from 'matter-js';
   import Ragdoll from './ragdoll';
   import { onMount } from 'svelte'; 
+  import Matter from 'matter-js';
+  const { Composite } = Matter;
   let viewport: HTMLElement;
   let engine: Engine;
   let render: Render;
