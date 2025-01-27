@@ -58,17 +58,48 @@
     addWalls();
     resize();
     
-    // Add a triangular deflector at the top
-    const deflector = Bodies.polygon(w/2, -20, 3, 25, {  // 3 sides = triangle
+    // Create a pivot point for the deflector
+    const pivotPoint = Bodies.circle(w/2, -20, 2, {
       isStatic: true,
-      angle: Math.PI * 0.5, // Point down
-      render: { 
-        visible: true,  // Optional: make it visible during testing
-        // fillStyle: '#FF0000'  // Uncomment to see it in red
+      render: { visible: false }
+    });
+    
+    // Create the rotating deflector
+    const deflector = Bodies.polygon(w/2, -20, 3, 25, {
+      angle: Math.PI * 0.5,
+      density: 0.1,
+      friction: 0.1,
+      render: { visible: true }
+    });
+    
+    // Create a constraint that acts like a motor
+    const constraint = Matter.Constraint.create({
+      pointA: { x: w/2, y: -40 },
+      bodyB: deflector,
+      pointB: { x: 0, y: -12.5 },
+      length: 0
+    });
+
+    // Track rotation direction and accumulated angle
+    let rotationDirection = 1;
+    let accumulatedAngle = 0;
+
+    // Add alternating rotation
+    Events.on(engine, 'beforeUpdate', () => {
+      const angularVelocity = 0.03;
+      Body.setAngularVelocity(deflector, angularVelocity * rotationDirection);
+      
+      // Track accumulated rotation
+      accumulatedAngle += angularVelocity * rotationDirection;
+      
+      // Switch direction after one full rotation (2π radians)
+      if (Math.abs(accumulatedAngle) >= Math.PI * 2) {
+        rotationDirection *= -1;
+        accumulatedAngle = 0;
       }
     });
     
-    Composite.add(walls, deflector);
+    Composite.add(walls, [pivotPoint, deflector, constraint]);
     
     Composite.add(world, [mouse, walls, humans]);
     addHuman();

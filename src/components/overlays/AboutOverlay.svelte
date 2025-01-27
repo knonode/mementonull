@@ -42,12 +42,16 @@
         It has freeze and clawback enabled to keep options for further development open.
     </p>
     <p>
-        $MORI creator account:
-        DEAXD24NWYIBUKALDZEMEMZCM6D4ANNTDB2VUKXOH3YO3SUONGZSXQZLGU
-        $MORI reserve account:
-        LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ
-        $MORI reciever account aka mementomori.algo:
-        ORBISXYDPXH4MGICPYHQLLSHH7IYMXECPJIG5N5M3GMKZ7MHRLBFHZLOFE
+      <strong>$MORI creator account:</strong><br />
+      <span class="account-address">DEAXD24NWYIBUKALDZEMEMZCM6D4ANNTDB2VUKXOH3YO3SUONGZSXQZLGU</span>
+    </p>
+    <p>
+      <strong>$MORI reserve account:</strong><br />
+      <span class="account-address">LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ</span>
+    </p>
+    <p>
+      <strong>$MORI receiver account aka mementomori.algo:</strong><br />
+      <span class="account-address">ORBISXYDPXH4MGICPYHQLLSHH7IYMXECPJIG5N5M3GMKZ7MHRLBFHZLOFE</span>
     </p>
     <p>
         Idea by Hampelman, token script and population data curve by RunVnc.
@@ -71,29 +75,49 @@
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
+    overflow-y: auto;
     
     &.open {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      padding: 1rem 0;
     }
   }
 
   .content {
-    background: #fdf6e3;  // Light paper color
-    color: #000;  // Dark text
+    background: #fdf6e3;
+    color: #000;
     padding: 2rem;
     max-width: 500px;
-    margin: 2rem;
+    width: 90%;
+    margin: 1rem;
     border: 1px solid #000;
     position: relative;
-
-    h2 {
-      margin-bottom: 1.5rem;  // Space after heading
+    box-sizing: border-box;
+    
+    p {
+      margin-bottom: 1rem;
     }
 
-    p {
-      margin-bottom: 1.5rem;  // Space between paragraphs
+    .account-address {
+      word-break: break-all;
+      overflow-wrap: break-word;
+    }
+    
+    @media (max-width: 480px) {
+      padding: 1.5rem;
+      margin: 0.5rem;
+      width: 95%;
+      
+      h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      
+      p {
+        font-size: 0.9rem;
+      }
     }
   }
 
