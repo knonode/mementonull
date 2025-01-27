@@ -31,6 +31,9 @@
 
   let isAboutOpen = false;
   
+  let nextUpdateTime = 3600; // 60 minutes in seconds
+  let countdown = "60:00";
+  
   /**
   * Init
   * ==================================================
@@ -186,6 +189,23 @@
     Body.setPosition(wallBodies.right, { x: w+50, y: h/2 });
   }
 
+  function updateCountdown() {
+    nextUpdateTime -= 1;
+    const minutes = Math.floor(nextUpdateTime / 60);
+    const seconds = nextUpdateTime % 60;
+    countdown = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (nextUpdateTime <= 0) {
+      nextUpdateTime = 3600; // Reset to 60 minutes
+    }
+  }
+
+  // Update the countdown every second
+  onMount(() => {
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  });
+
   async function updateAssetInfo() {
     try {
       // Get and format circulating supply
@@ -195,6 +215,7 @@
       // Get and format last transaction
       const txAmount = await getLastTransaction();
       lastTx = txAmount;  // Now returns either formatted amount or error message directly
+      nextUpdateTime = 3600; // Reset countdown when new data is fetched
     } catch (error) {
       console.error('Error fetching asset info:', error);
       circulatingSupply = "Error loading";
@@ -226,7 +247,10 @@
   class="viewport"
 >
   <div class="info-panel terminal-text">
-    <h1>MEMENTO MORI WORLD POPULATION SIMULATOR</h1>
+    <h1 class="header">
+      <span class="left-title">MEMENTO MORI</span>
+      <span class="right-title">WORLD POPULATION TRACKER</span>
+    </h1>
     
     <div class="info-row">
       <span class="label">Unit:</span>
@@ -255,6 +279,11 @@
     <div class="info-row">
       <span class="label">Last txn:</span>
       <span class="value">{lastTx}</span>
+    </div>
+
+    <div class="info-row">
+      <span class="label">Next txn in:</span>
+      <span class="value">{countdown}</span>
     </div>
 
     <div class="info-row">
@@ -305,5 +334,30 @@
     &:hover {
       text-decoration: underline;
     }
+  }
+
+  .header {
+    display: flex;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .left-title {
+    width: 50%;
+    text-align: left;
+  }
+
+  .right-title {
+    width: 50%;
+    text-align: right;
+    margin-right: -50px;  // Small negative margin to prevent text cutoff
+    padding-right: 50px;  // Compensate for the negative margin
+  }
+
+  .info-panel {
+    width: 100%;
+    padding: 0;
+    overflow: visible;  // Ensure content isn't clipped
   }
 </style>
