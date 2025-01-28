@@ -1,6 +1,31 @@
+import { apiStore } from '../stores/apiStore';
+
 const MORI_ASA_ID = '1018187012';
 const RESERVE_ADDRESS = 'LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ';
 const TOTAL_SUPPLY = 11200000000; // Fixed total supply
+
+// Add cache check function
+function shouldFetchNewData(lastFetchTime: number): boolean {
+  const now = Date.now();
+  const nextHour = Math.ceil(now / 3600000) * 3600000;
+  console.log('Checking if should fetch:', {
+    lastFetchTime,
+    now,
+    timeSinceLastFetch: now - lastFetchTime
+  });
+  return now >= nextHour || (now - lastFetchTime) >= 3600000;
+}
+
+// Add this at the top to test localStorage
+try {
+  console.log('Testing localStorage...');
+  localStorage.setItem('test', 'test');
+  const testValue = localStorage.getItem('test');
+  console.log('localStorage test value:', testValue);
+  localStorage.removeItem('test');
+} catch (error) {
+  console.error('localStorage not working:', error);
+}
 
 export async function getCirculatingSupply() {
   try {
@@ -44,5 +69,40 @@ export async function getLastTransaction() {
   } catch (error) {
     console.error('Error fetching last transaction:', error);
     return 'Error';
+  }
+}
+
+// Modify existing functions to use cache
+export async function updateAssetInfo() {
+  let cached;
+  apiStore.subscribe(value => cached = value)();
+  
+  console.log('Current cached data:', cached);
+  
+  // Check if we have valid cached data
+  if (cached.lastFetchTime && !shouldFetchNewData(cached.lastFetchTime)) {
+    console.log('Using cached data');
+    return cached;
+  }
+
+  console.log('Fetching new data from API...');
+  try {
+    const supply = await getCirculatingSupply();
+    const txAmount = await getLastTransaction();
+    
+    const newData = {
+      circulatingSupply: supply.toString(),
+      lastTx: txAmount.toString(),
+      lastFetchTime: Date.now()  // Make sure this is being set
+    };
+    
+    // Single store update
+    apiStore.set(newData);
+    
+    console.log('New data saved:', newData);
+    return newData;
+  } catch (error) {
+    console.error('Error in updateAssetInfo:', error);
+    return cached;
   }
 } 

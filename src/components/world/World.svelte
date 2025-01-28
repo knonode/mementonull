@@ -14,8 +14,10 @@
   import { onMount } from 'svelte'; 
   import Matter from 'matter-js';
   const { Composite } = Matter;
-  import { getCirculatingSupply, getLastTransaction } from '$lib/api/algorand';
+  import { getCirculatingSupply, getLastTransaction, updateAssetInfo } from '$lib/api/algorand';
   import AboutOverlay from '../overlays/AboutOverlay.svelte';
+  import { apiStore } from '$lib/stores/apiStore';
+  import { Pipe } from './pipe';
   let viewport: HTMLElement;
   let engine: Engine;
   let render: Render;
@@ -26,14 +28,100 @@
   const walls = Composite.create();
   const humans = Composite.create();
 
-  let circulatingSupply = "Loading...";
-  let lastTx = "Loading...";
-
+  let apiData: {
+    circulatingSupply: string;
+    lastTx: string;
+    lastFetchTime?: number;
+  } = {
+    circulatingSupply: Number(0).toLocaleString(),
+    lastTx: "--"
+  };
+  let nextUpdateTime: number;
+  let countdown = "--:--";
   let isAboutOpen = false;
+  let timer: NodeJS.Timer;
+  let isPaused = false;
+  let runner: Runner;
+
+  const MAX_RAGDOLLS = 60;
+  const BODIES_PER_RAGDOLL = 10;
+
+  let ragdolls: Matter.Composite[] = [];  // Add this to track ragdolls
+
+  let leftPipe: Pipe;
+  let rightPipe: Pipe;
+
+  let goodLifeCount = 0;
+  let badLifeCount = 0;
+
+  function initializeTimer(lastFetchTime: number) {
+    performance.mark('initTimer-start');
+    
+    const now = Date.now();
+    const nextUpdate = lastFetchTime + 3600000;
+    const result = Math.floor((nextUpdate - now) / 1000);
+    
+    performance.mark('initTimer-end');
+    performance.measure('Timer Initialization', 'initTimer-start', 'initTimer-end');
+    return result;
+  }
+
+  apiStore.subscribe(value => {
+    performance.mark('storeUpdate-start');
+    
+    console.log('Store update:', value);
+    value.circulatingSupply = Number(value.circulatingSupply).toLocaleString();
+    apiData = value;
+    if (value.lastFetchTime) {
+      nextUpdateTime = initializeTimer(value.lastFetchTime);
+      countdown = `${Math.floor(nextUpdateTime / 60)}:${(nextUpdateTime % 60).toString().padStart(2, '0')}`;
+      if (timer) clearInterval(timer);
+      timer = setInterval(updateCountdown, 1000);
+    }
+    
+    performance.mark('storeUpdate-end');
+    performance.measure('Store Update', 'storeUpdate-start', 'storeUpdate-end');
+  });
   
-  let nextUpdateTime = 3600; // 60 minutes in seconds
-  let countdown = "60:00";
-  
+  function updateCountdown() {
+    performance.mark('countdown-start');
+    
+    if (nextUpdateTime > 0) {
+      nextUpdateTime--;
+      countdown = `${Math.floor(nextUpdateTime / 60)}:${(nextUpdateTime % 60).toString().padStart(2, '0')}`;
+      if (nextUpdateTime === 0) updateAssetInfo();
+    }
+    
+    performance.mark('countdown-end');
+    performance.measure('Countdown Update', 'countdown-start', 'countdown-end');
+  }
+
+  function toggleAbout() {
+    isAboutOpen = !isAboutOpen;
+  }
+
+  onMount(() => {
+    console.log('Component mounted');
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'k' || e.key === 'K') {  // 'k' for kill
+        isPaused = !isPaused;
+        if (isPaused) {
+          runner.enabled = false;
+          Render.stop(render);
+        } else {
+          runner.enabled = true;
+          Render.run(render);
+        }
+      }
+    };
+    
+    window.addEventListener('keypress', handleKeyPress);
+    return () => {
+      window.removeEventListener('keypress', handleKeyPress);
+      if (timer) clearInterval(timer);
+    };
+  });
+
   /**
   * Init
   * ==================================================
@@ -53,9 +141,39 @@
       },
     });
     
-    const runner = Runner.create()
+    // Create runner with specific options
+    runner = Runner.create({
+      isFixed: true,          // Use fixed timestep
+      delta: 1000/30,         // Run at 30 FPS instead of default 60 FPS
+      enabled: true           // Start enabled
+    });
+    
     Render.run(render);
     Runner.run(runner, engine);
+    
+    // Create pipes after world setup but before adding mouse
+    const pipeWidth = 195;    // Actual SVG width * scale
+    const pipeHeight = 369;   // Actual SVG height * scale
+    
+    // Position pipes in middle of each half, at bottom
+    leftPipe = Pipe.create(
+      w * 0.25,
+      h,                  // Ground level
+      pipeWidth,
+      pipeHeight,
+      false
+    );
+    
+    rightPipe = Pipe.create(
+      w * 0.75,
+      h,                  // Same ground level
+      pipeWidth,
+      pipeHeight,
+      true
+    );
+    
+    // Add pipes to world
+    Composite.add(world, [leftPipe.composite, rightPipe.composite]);
     
     const mouse = addMouse();
     addWalls();
@@ -106,9 +224,155 @@
     
     Composite.add(world, [mouse, walls, humans]);
     addHuman();
+    setInterval(addHuman, 500);
 
-    setInterval(addHuman, 1000)
+    // Add collision detection
+    Events.on(engine, 'collisionStart', (event) => {
+        event.pairs.forEach((pair) => {
+            const { bodyA, bodyB } = pair;
+            
+            // Check if doll hits sensor
+            if (bodyA.label === 'goodLifeSensor' || bodyA.label === 'badLifeSensor') {
+                const distance = Math.abs(bodyA.position.y - bodyB.position.y);
+                
+                // Only remove if within 3 pixels of sensor
+                if (distance <= 3) {
+                    const dollIndex = ragdolls.findIndex(doll => 
+                        doll.bodies.some(body => body.id === bodyB.id)
+                    );
+                    if (dollIndex !== -1) {
+                        // Increment counter based on sensor type
+                        if (bodyA.label === 'goodLifeSensor') {
+                            goodLifeCount++;
+                        } else {
+                            badLifeCount++;
+                        }
 
+                        // Create more particles for smoky effect
+                        for (let i = 0; i < 6; i++) {
+                            const particle = Bodies.circle(
+                                bodyB.position.x + (Math.random() - 0.5) * 10,
+                                bodyB.position.y,
+                                2 + Math.random() * 2,
+                                {
+                                    isStatic: false,
+                                    frictionAir: 0.05,
+                                    density: 0.0005,
+                                    render: {
+                                        fillStyle: bodyA.label === 'goodLifeSensor' ? '#E0E0E0' : '#C0C0C0',
+                                        opacity: 0.8
+                                    }
+                                }
+                            );
+                            
+                            // Even gentler initial boost
+                            Body.setVelocity(particle, {
+                                x: (Math.random() - 0.5) * 0.2,  // Reduced horizontal spread
+                                y: -0.2 - Math.random() * 0.3    // Much slower upward start
+                            });
+                            
+                            Composite.add(world, particle);
+                            
+                            // Even gentler constant force
+                            Events.on(engine, 'beforeUpdate', function updateParticle() {
+                                Body.applyForce(particle, particle.position, {
+                                    x: 0,
+                                    y: -0.00002  // Reduced upward force
+                                });
+                                
+                                if (particle.render.opacity <= 0) {
+                                    Events.off(engine, 'beforeUpdate', updateParticle);
+                                }
+                            });
+                            
+                            // Faster fade
+                            let opacity = 0.8;
+                            const fadeInterval = setInterval(() => {
+                                opacity -= 0.04;  // Increased fade rate
+                                if (particle.render) particle.render.opacity = opacity;
+                                if (opacity <= 0) {
+                                    clearInterval(fadeInterval);
+                                    Composite.remove(world, particle);
+                                }
+                            }, 50);  // Shorter interval
+                        }
+
+                        const doll = ragdolls[dollIndex];
+                        Composite.remove(humans, doll);
+                        ragdolls.splice(dollIndex, 1);  // Remove from tracking array
+                    }
+                }
+            }
+            // Mirror check for bodyB
+            if (bodyB.label === 'goodLifeSensor' || bodyB.label === 'badLifeSensor') {
+                const distance = Math.abs(bodyA.position.y - bodyB.position.y);
+                if (distance <= 3) {
+                    const dollIndex = ragdolls.findIndex(doll => 
+                        doll.bodies.some(body => body.id === bodyA.id)
+                    );
+                    if (dollIndex !== -1) {
+                        // Increment counter based on sensor type
+                        if (bodyB.label === 'goodLifeSensor') {
+                            goodLifeCount++;
+                        } else {
+                            badLifeCount++;
+                        }
+
+                        // Create more particles for smoky effect
+                        for (let i = 0; i < 6; i++) {
+                            const particle = Bodies.circle(
+                                bodyA.position.x + (Math.random() - 0.5) * 10,
+                                bodyA.position.y,
+                                2 + Math.random() * 2,
+                                {
+                                    isStatic: false,
+                                    frictionAir: 0.05,
+                                    density: 0.0005,
+                                    render: {
+                                        fillStyle: bodyB.label === 'goodLifeSensor' ? '#E0E0E0' : '#C0C0C0',
+                                        opacity: 0.8
+                                    }
+                                }
+                            );
+                            
+                            // Keep gentle motion
+                            Body.setVelocity(particle, {
+                                x: (Math.random() - 0.5) * 0.2,
+                                y: -0.2 - Math.random() * 0.3
+                            });
+                            
+                            Composite.add(world, particle);
+                            
+                            Events.on(engine, 'beforeUpdate', function updateParticle() {
+                                Body.applyForce(particle, particle.position, {
+                                    x: 0,
+                                    y: -0.00002
+                                });
+                                
+                                if (particle.render.opacity <= 0) {
+                                    Events.off(engine, 'beforeUpdate', updateParticle);
+                                }
+                            });
+                            
+                            // Faster fade
+                            let opacity = 0.8;
+                            const fadeInterval = setInterval(() => {
+                                opacity -= 0.04;  // Increased fade rate
+                                if (particle.render) particle.render.opacity = opacity;
+                                if (opacity <= 0) {
+                                    clearInterval(fadeInterval);
+                                    Composite.remove(world, particle);
+                                }
+                            }, 50);  // Shorter interval
+                        }
+                        const doll = ragdolls[dollIndex];
+                        Composite.remove(humans, doll);
+                        ragdolls.splice(dollIndex, 1);  // Remove from tracking array
+                    }
+                }
+            }
+        });
+    });
   }
 
   /**
@@ -161,9 +425,16 @@
   * ==================================================
   */
   function addHuman() {
-    // Spawn slightly higher to account for deflector
     const human = Ragdoll.create(w/2, -80, 0.25) as Matter.Composite;
     Composite.add(humans, human);
+    ragdolls.push(human);  // Track the new ragdoll
+
+    // Remove oldest if at limit
+    if (ragdolls.length > MAX_RAGDOLLS) {
+      const oldestRagdoll = ragdolls[0];
+      Composite.remove(humans, oldestRagdoll);
+      ragdolls.splice(0, 1);  // Remove from our tracking array
+    }
   }
 
 
@@ -187,52 +458,57 @@
     Body.setPosition(wallBodies.ground, { x: w/2, y: h+20 });
     Body.setPosition(wallBodies.left, { x: -50, y: h/2 });
     Body.setPosition(wallBodies.right, { x: w+50, y: h/2 });
-  }
-
-  function updateCountdown() {
-    nextUpdateTime -= 1;
-    const minutes = Math.floor(nextUpdateTime / 60);
-    const seconds = nextUpdateTime % 60;
-    countdown = `${minutes}:${seconds.toString().padStart(2, '0')}`;
     
-    if (nextUpdateTime <= 0) {
-      nextUpdateTime = 3600; // Reset to 60 minutes
+    if (leftPipe && rightPipe) {
+        const maxWidth = Math.min(w, 960);
+        const centerOffset = (w - maxWidth) / 2;
+        const bottomOffset = 110;  // Increased to 110px from bottom
+        
+        // Position SVGs like background-position: bottom center
+        const svgPositions = {
+            left: {
+                x: centerOffset + (maxWidth * 0.25),
+                y: h - bottomOffset
+            },
+            right: {
+                x: centerOffset + (maxWidth * 0.75),
+                y: h - bottomOffset
+            }
+        };
+        
+        // Update SVGs
+        Body.setPosition(leftPipe.body, svgPositions.left);
+        Body.setPosition(rightPipe.body, svgPositions.right);
+        
+        // Scale SVGs like background-size: auto
+        const scale = maxWidth/960;
+        Body.scale(leftPipe.body, scale, scale);
+        Body.scale(rightPipe.body, scale, scale);
+        
+        // Update walls relative to SVGs
+        leftPipe.updateWallPosition();
+        rightPipe.updateWallPosition();
     }
   }
 
-  // Update the countdown every second
-  onMount(() => {
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
-  });
-
-  async function updateAssetInfo() {
-    try {
-      // Get and format circulating supply
-      const supply = await getCirculatingSupply();
-      circulatingSupply = new Intl.NumberFormat().format(supply);
-
-      // Get and format last transaction
-      const txAmount = await getLastTransaction();
-      lastTx = txAmount;  // Now returns either formatted amount or error message directly
-      nextUpdateTime = 3600; // Reset countdown when new data is fetched
-    } catch (error) {
-      console.error('Error fetching asset info:', error);
-      circulatingSupply = "Error loading";
-      lastTx = "Error loading";
-    }
+  function calculateNextUpdate() {
+    const now = Date.now();
+    const nextHour = Math.ceil(now / 3600000) * 3600000;
+    return Math.max(0, nextHour - now);
   }
 
-  // Update every hour
-  onMount(() => {
-    updateAssetInfo();
-    const interval = setInterval(updateAssetInfo, 3600000);
-    return () => clearInterval(interval);
+  onMount(async () => {
+    // Initial fetch
+    await updateAssetInfo();
+    
+    // Set up interval for next top of the hour
+    const initialDelay = calculateNextUpdate();
+    setTimeout(() => {
+      updateAssetInfo();
+      // After first sync, set regular hourly interval
+      setInterval(updateAssetInfo, 3600000);
+    }, initialDelay);
   });
-
-  function toggleAbout() {
-    isAboutOpen = !isAboutOpen;
-  }
 
 </script>
 
@@ -273,12 +549,12 @@
 
     <div class="info-row">
       <span class="label">Circulating:</span>
-      <span class="value">{circulatingSupply}</span>
+      <span class="value">{apiData.circulatingSupply}</span>
     </div>
     
     <div class="info-row">
       <span class="label">Last txn:</span>
-      <span class="value">{lastTx}</span>
+      <span class="value">{apiData.lastTx}</span>
     </div>
 
     <div class="info-row">
@@ -292,6 +568,14 @@
       </span>
     </div>
     
+    <div class="info-row">
+      <span class="label">Good Life:</span>
+      <span class="value">{goodLifeCount}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Bad Life:</span>
+      <span class="value">{badLifeCount}</span>
+    </div>
 
   </div>
 </div>
