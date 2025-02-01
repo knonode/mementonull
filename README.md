@@ -20,7 +20,7 @@ Current page [here](https://population.un.org/wpp/)
 It's fairly simple. We have two projected population numbers for each year. So we determine how far we are between two data points, year start or middle and year end, and do a linear interpolation.
 
 ## Population Projection
-![World Population Projection](/assets/charts/population-chart.svg)
+![World Population Projection](/docs/charts/population-chart.svg)
 
 ## Important Note
 This token will never be made available for trading and is made only for educational and entertainment purposes. It has freeze and clawback enabled to keep options for further development open.
