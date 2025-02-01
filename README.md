@@ -10,6 +10,18 @@ A philosophical discussion conceived as an Algorand ASA with a fluctuating circu
 
 The project, being built on Algorand and closely tied to the monetary system as such, asks questions about the worth of a human life. One $MEMO represents one living human, and in principle every human being on the planet and orbiting it, is accredited with one $MEMO.
 
+## Data
+Data is extracted from United Nations World Population Prospects 2022 (WPP 2022)
+
+Current page [here](https://population.un.org/wpp/)
+
+## Algorithm
+
+It's fairly simple. We have two projected population numbers for each year. So we determine how far we are between two data points, year start or middle and year end, and do a linear interpolation.
+
+## Population Projection
+![World Population Projection](/assets/charts/population-chart.svg)
+
 ## Important Note
 This token will never be made available for trading and is made only for educational and entertainment purposes. It has freeze and clawback enabled to keep options for further development open.
 
