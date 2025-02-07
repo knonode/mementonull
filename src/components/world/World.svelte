@@ -54,6 +54,9 @@
   let goodLifeCount = 0;
   let badLifeCount = 0;
 
+  const MOBILE_BREAKPOINT = 768; // Common breakpoint for mobile devices
+  const isSmallScreen = w <= MOBILE_BREAKPOINT;
+
   function initializeTimer(lastFetchTime: number) {
     performance.mark('initTimer-start');
     
@@ -141,11 +144,13 @@
       },
     });
     
-    // Create runner with specific options
+    // Create runner with conditional speed
     runner = Runner.create({
-      isFixed: true,          // Use fixed timestep
-      delta: 1000/30,         // Run at 30 FPS instead of default 60 FPS
-      enabled: true           // Start enabled
+      isFixed: true,
+      delta: 1000/30,  // Base FPS
+      enabled: true,
+      // Adjust timeScale based on screen size
+      timeScale: isSmallScreen ? 0.1 : 1.0  // 30% slower on mobile
     });
     
     Render.run(render);
