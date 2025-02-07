@@ -131,7 +131,14 @@
   */
   onMount(init);
   function init() {
-    engine = Engine.create();
+    engine = Engine.create({
+        gravity: {
+            x: 0,
+            y: w <= MOBILE_BREAKPOINT ? 0.21 : 1,  // 20% less gravity on mobile
+            scale: 0.001
+        }
+    });
+    console.log('Screen size:', w, 'Gravity:', engine.gravity.y); // Use engine.gravity instead
     world = engine.world;
     render = Render.create({
       element: viewport,
@@ -148,9 +155,7 @@
     runner = Runner.create({
       isFixed: true,
       delta: 1000/30,  // Base FPS
-      enabled: true,
-      // Adjust timeScale based on screen size
-      timeScale: isSmallScreen ? 0.1 : 1.0  // 30% slower on mobile
+      enabled: true
     });
     
     Render.run(render);

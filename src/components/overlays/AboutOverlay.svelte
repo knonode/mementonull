@@ -25,6 +25,9 @@
         reaching total supply or in case fee structure changes on Algorand protocol.
     </p>
     <p>
+        Add mementomori.algo as a watch account to receive hourly updates on world population.
+    </p>
+    <p>
         A philosophical discussion conceived as an Algorand ASA with a 
         fluctuating circulating supply pegged to the amount of people living on 
         planet Earth at present time.
