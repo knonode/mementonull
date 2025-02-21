@@ -17,7 +17,7 @@
   import { getCirculatingSupply, getLastTransaction, updateAssetInfo } from '$lib/api/algorand';
   import AboutOverlay from '../overlays/AboutOverlay.svelte';
   import { apiStore } from '$lib/stores/apiStore';
-  import { Pipe } from './pipe';
+  import { Pipe, type PipeType } from './pipe';
   let viewport: HTMLElement;
   let engine: Engine;
   let render: Render;
@@ -48,14 +48,29 @@
 
   let ragdolls: Matter.Composite[] = [];  // Add this to track ragdolls
 
-  let leftPipe: Pipe;
-  let rightPipe: Pipe;
+  let pipes: Record<PipeType, Pipe>;
 
-  let goodLifeCount = 0;
-  let badLifeCount = 0;
+  let lifeCounts: Record<PipeType, number> = {
+    noLife: 0,
+    halfLife: 0,
+    lowLife: 0,
+    badLife: 0,
+    goodLife: 0,
+    highLife: 0,
+    bestLife: 0,
+    wonderfulLife: 0
+  };
 
-  const MOBILE_BREAKPOINT = 768; // Common breakpoint for mobile devices
-  const isSmallScreen = w <= MOBILE_BREAKPOINT;
+  // First, let's store references to the deflector components
+  let deflector: Matter.Body;
+  let deflectorPivot: Matter.Body;
+  let deflectorConstraint: Matter.Constraint;
+
+  let maxWidth: number;
+
+  const MIN_CENTRAL_DISTANCE = 150; // Minimum pixels between bad and good life
+
+  let pipePositions: Record<PipeType, { x: number; y: number }> = {};
 
   function initializeTimer(lastFetchTime: number) {
     performance.mark('initTimer-start');
@@ -134,11 +149,11 @@
     engine = Engine.create({
         gravity: {
             x: 0,
-            y: w <= MOBILE_BREAKPOINT ? 0.21 : 1,  // 20% less gravity on mobile
+            y: 0.21,  // Using the mobile value globally for gentler physics
             scale: 0.001
         }
     });
-    console.log('Screen size:', w, 'Gravity:', engine.gravity.y); // Use engine.gravity instead
+    console.log('Screen size:', w, 'Gravity:', engine.gravity.y); // Keep for debugging
     world = engine.world;
     render = Render.create({
       element: viewport,
@@ -161,50 +176,51 @@
     Render.run(render);
     Runner.run(runner, engine);
     
-    // Create pipes after world setup but before adding mouse
-    const pipeWidth = 195;    // Actual SVG width * scale
-    const pipeHeight = 369;   // Actual SVG height * scale
-    
-    // Position pipes in middle of each half, at bottom
-    leftPipe = Pipe.create(
-      w * 0.25,
-      h,                  // Ground level
-      pipeWidth,
-      pipeHeight,
-      false
-    );
-    
-    rightPipe = Pipe.create(
-      w * 0.75,
-      h,                  // Same ground level
-      pipeWidth,
-      pipeHeight,
-      true
-    );
-    
-    // Add pipes to world
-    Composite.add(world, [leftPipe.composite, rightPipe.composite]);
+    const pipeWidth = 195;
+    const pipeHeight = 369;
+    const centerLeft = w * 0.35;
+    const centerRight = w * 0.65;
+    const pipeSpacing = 180;
+
+    // Create all six pipes
+    pipes = {
+      noLife: Pipe.create(centerLeft - (pipeSpacing * 3), h, pipeWidth, pipeHeight, 'noLife'),
+      halfLife: Pipe.create(centerLeft - (pipeSpacing * 2), h, pipeWidth, pipeHeight, 'halfLife'),
+      lowLife: Pipe.create(centerLeft - pipeSpacing, h, pipeWidth, pipeHeight, 'lowLife'),
+      badLife: Pipe.create(centerLeft, h, pipeWidth, pipeHeight, 'badLife'),
+      goodLife: Pipe.create(centerRight, h, pipeWidth, pipeHeight, 'goodLife'),
+      highLife: Pipe.create(centerRight + pipeSpacing, h, pipeWidth, pipeHeight, 'highLife'),
+      bestLife: Pipe.create(centerRight + (pipeSpacing * 2), h, pipeWidth, pipeHeight, 'bestLife'),
+      wonderfulLife: Pipe.create(centerRight + (pipeSpacing * 3), h, pipeWidth, pipeHeight, 'wonderfulLife')
+    };
+
+    // Add all pipes to world
+    Composite.add(world, Object.values(pipes).map(pipe => pipe.composite));
     
     const mouse = addMouse();
     addWalls();
     resize();
     
-    // Create a pivot point for the deflector
-    const pivotPoint = Bodies.circle(w/2, -20, 2, {
+    // Create a pivot point for the deflector (change back to original y position)
+    deflectorPivot = Bodies.circle(w/2, -20, 2, {
       isStatic: true,
       render: { visible: false }
     });
     
-    // Create the rotating deflector
-    const deflector = Bodies.polygon(w/2, -20, 3, 25, {
+    // Create the rotating deflector (change back to original y position)
+    deflector = Bodies.polygon(w/2, -20, 3, 25, {
       angle: Math.PI * 0.5,
       density: 0.1,
       friction: 0.1,
-      render: { visible: true }
+      render: { 
+        visible: true,
+        fillStyle: '#000000',  // Black color
+        opacity: 0.8
+      }
     });
     
-    // Create a constraint that acts like a motor
-    const constraint = Matter.Constraint.create({
+    // Create a constraint (change back to original y position)
+    deflectorConstraint = Matter.Constraint.create({
       pointA: { x: w/2, y: -40 },
       bodyB: deflector,
       pointB: { x: 0, y: -12.5 },
@@ -215,61 +231,70 @@
     let rotationDirection = 1;
     let accumulatedAngle = 0;
 
-    // Add alternating rotation
+    // Add alternating rotation with width-based scaling
     Events.on(engine, 'beforeUpdate', () => {
-      const angularVelocity = 0.03;
-      Body.setAngularVelocity(deflector, angularVelocity * rotationDirection);
-      
-      // Track accumulated rotation
-      accumulatedAngle += angularVelocity * rotationDirection;
-      
-      // Switch direction after one full rotation (2π radians)
-      if (Math.abs(accumulatedAngle) >= Math.PI * 2) {
-        rotationDirection *= -1;
-        accumulatedAngle = 0;
-      }
+        // Calculate maximum velocity
+        const baseVelocity = 0.05;
+        const widthScale = Math.min(w / 200, 5);
+        const maxVelocity = baseVelocity * widthScale;
+        
+        // Randomize between 0 and max velocity
+        const r = Math.random();
+        const angularVelocity = maxVelocity * (0.6 * r + 0.4 * (r * r));
+        
+        Body.setAngularVelocity(deflector, angularVelocity * rotationDirection);
+        
+        // Track accumulated rotation
+        accumulatedAngle += angularVelocity * rotationDirection;
+        
+        // Randomly choose new direction after half rotation
+        if (Math.abs(accumulatedAngle) >= Math.PI * 0.8) {  // 20% smaller rotation range
+            rotationDirection = Math.random() > 0.5 ? 1 : -1;
+            accumulatedAngle = 0;
+        }
     });
     
-    Composite.add(walls, [pivotPoint, deflector, constraint]);
+    Composite.add(walls, [deflectorPivot, deflector, deflectorConstraint]);
     
     Composite.add(world, [mouse, walls, humans]);
     addHuman();
     setInterval(addHuman, 500);
 
-    // Add collision detection
+    // Update collision detection to handle all pipe types
     Events.on(engine, 'collisionStart', (event) => {
         event.pairs.forEach((pair) => {
             const { bodyA, bodyB } = pair;
             
-            // Check if doll hits sensor
-            if (bodyA.label === 'goodLifeSensor' || bodyA.label === 'badLifeSensor') {
+            // Check for any pipe sensor collision
+            const sensorBody = bodyA.label.includes('Sensor') ? bodyA : 
+                             bodyB.label.includes('Sensor') ? bodyB : null;
+            
+            if (sensorBody) {
                 const distance = Math.abs(bodyA.position.y - bodyB.position.y);
                 
-                // Only remove if within 3 pixels of sensor
                 if (distance <= 3) {
+                    const dollBody = bodyA === sensorBody ? bodyB : bodyA;
                     const dollIndex = ragdolls.findIndex(doll => 
-                        doll.bodies.some(body => body.id === bodyB.id)
+                        doll.bodies.some(body => body.id === dollBody.id)
                     );
+
                     if (dollIndex !== -1) {
-                        // Increment counter based on sensor type
-                        if (bodyA.label === 'goodLifeSensor') {
-                            goodLifeCount++;
-                        } else {
-                            badLifeCount++;
-                        }
+                        // Extract pipe type from sensor label
+                        const pipeType = sensorBody.label.replace('Sensor', '') as PipeType;
+                        lifeCounts[pipeType]++;
 
                         // Create more particles for smoky effect
                         for (let i = 0; i < 6; i++) {
                             const particle = Bodies.circle(
-                                bodyB.position.x + (Math.random() - 0.5) * 10,
-                                bodyB.position.y,
+                                dollBody.position.x + (Math.random() - 0.5) * 10,
+                                dollBody.position.y,
                                 2 + Math.random() * 2,
                                 {
                                     isStatic: false,
                                     frictionAir: 0.05,
                                     density: 0.0005,
                                     render: {
-                                        fillStyle: bodyA.label === 'goodLifeSensor' ? '#E0E0E0' : '#C0C0C0',
+                                        fillStyle: pipeType === 'goodLife' ? '#E0E0E0' : '#C0C0C0',
                                         opacity: 0.8
                                     }
                                 }
@@ -290,7 +315,7 @@
                                     y: -0.00002  // Reduced upward force
                                 });
                                 
-                                if (particle.render.opacity <= 0) {
+                                if (particle.render && particle.render.opacity <= 0) {
                                     Events.off(engine, 'beforeUpdate', updateParticle);
                                 }
                             });
@@ -309,75 +334,7 @@
 
                         const doll = ragdolls[dollIndex];
                         Composite.remove(humans, doll);
-                        ragdolls.splice(dollIndex, 1);  // Remove from tracking array
-                    }
-                }
-            }
-            // Mirror check for bodyB
-            if (bodyB.label === 'goodLifeSensor' || bodyB.label === 'badLifeSensor') {
-                const distance = Math.abs(bodyA.position.y - bodyB.position.y);
-                if (distance <= 3) {
-                    const dollIndex = ragdolls.findIndex(doll => 
-                        doll.bodies.some(body => body.id === bodyA.id)
-                    );
-                    if (dollIndex !== -1) {
-                        // Increment counter based on sensor type
-                        if (bodyB.label === 'goodLifeSensor') {
-                            goodLifeCount++;
-                        } else {
-                            badLifeCount++;
-                        }
-
-                        // Create more particles for smoky effect
-                        for (let i = 0; i < 6; i++) {
-                            const particle = Bodies.circle(
-                                bodyA.position.x + (Math.random() - 0.5) * 10,
-                                bodyA.position.y,
-                                2 + Math.random() * 2,
-                                {
-                                    isStatic: false,
-                                    frictionAir: 0.05,
-                                    density: 0.0005,
-                                    render: {
-                                        fillStyle: bodyB.label === 'goodLifeSensor' ? '#E0E0E0' : '#C0C0C0',
-                                        opacity: 0.8
-                                    }
-                                }
-                            );
-                            
-                            // Keep gentle motion
-                            Body.setVelocity(particle, {
-                                x: (Math.random() - 0.5) * 0.2,
-                                y: -0.2 - Math.random() * 0.3
-                            });
-                            
-                            Composite.add(world, particle);
-                            
-                            Events.on(engine, 'beforeUpdate', function updateParticle() {
-                                Body.applyForce(particle, particle.position, {
-                                    x: 0,
-                                    y: -0.00002
-                                });
-                                
-                                if (particle.render.opacity <= 0) {
-                                    Events.off(engine, 'beforeUpdate', updateParticle);
-                                }
-                            });
-                            
-                            // Faster fade
-                            let opacity = 0.8;
-                            const fadeInterval = setInterval(() => {
-                                opacity -= 0.04;  // Increased fade rate
-                                if (particle.render) particle.render.opacity = opacity;
-                                if (opacity <= 0) {
-                                    clearInterval(fadeInterval);
-                                    Composite.remove(world, particle);
-                                }
-                            }, 50);  // Shorter interval
-                        }
-                        const doll = ragdolls[dollIndex];
-                        Composite.remove(humans, doll);
-                        ragdolls.splice(dollIndex, 1);  // Remove from tracking array
+                        ragdolls.splice(dollIndex, 1);
                     }
                 }
             }
@@ -455,6 +412,7 @@
   $: w, h, resize();
   function resize() {
     if (!render) return;
+    maxWidth = Math.min(w, 960);
     render.options.width = w;
     render.options.height = h;
     render.canvas.width = w;
@@ -469,35 +427,79 @@
     Body.setPosition(wallBodies.left, { x: -50, y: h/2 });
     Body.setPosition(wallBodies.right, { x: w+50, y: h/2 });
     
-    if (leftPipe && rightPipe) {
-        const maxWidth = Math.min(w, 960);
+    if (pipes) {
         const centerOffset = (w - maxWidth) / 2;
-        const bottomOffset = 110;  // Increased to 110px from bottom
+        const bottomOffset = 110;
+        const pipeSpacing = 180;
         
-        // Position SVGs like background-position: bottom center
-        const svgPositions = {
-            left: {
-                x: centerOffset + (maxWidth * 0.25),
-                y: h - bottomOffset
-            },
-            right: {
-                x: centerOffset + (maxWidth * 0.75),
-                y: h - bottomOffset
-            }
+        let centerLeft = maxWidth * 0.35;
+        let centerRight = maxWidth * 0.65;
+        
+        const actualDistance = centerRight - centerLeft;
+        if (actualDistance < MIN_CENTRAL_DISTANCE) {
+            centerLeft = (maxWidth - MIN_CENTRAL_DISTANCE) / 2;
+            centerRight = centerLeft + MIN_CENTRAL_DISTANCE;
+        }
+        
+        // Update pipePositions
+        pipePositions = {
+            noLife: { x: centerOffset + centerLeft - (pipeSpacing * 3), y: h - bottomOffset },
+            halfLife: { x: centerOffset + centerLeft - (pipeSpacing * 2), y: h - bottomOffset },
+            lowLife: { x: centerOffset + centerLeft - pipeSpacing, y: h - bottomOffset },
+            badLife: { x: centerOffset + centerLeft, y: h - bottomOffset },
+            goodLife: { x: centerOffset + centerRight, y: h - bottomOffset },
+            highLife: { x: centerOffset + centerRight + pipeSpacing, y: h - bottomOffset },
+            bestLife: { x: centerOffset + centerRight + (pipeSpacing * 2), y: h - bottomOffset },
+            wonderfulLife: { x: centerOffset + centerRight + (pipeSpacing * 3), y: h - bottomOffset }
         };
+
+        // Update pipe positions
+        Object.entries(pipes).forEach(([type, pipe]) => {
+            const pos = pipePositions[type as PipeType];
+            Body.setPosition(pipe.body, pos);
+            
+            const scale = maxWidth/960;
+            Body.scale(pipe.body, scale, scale);
+            
+            // Show/hide pipes based on screen width
+            if (pipe.body.render) {
+                // Always show the central pipes (badLife and goodLife)
+                if (type === 'badLife' || type === 'goodLife') {
+                    pipe.body.render.opacity = 1;
+                    pipe.leftWall.render.opacity = 1;
+                    pipe.topSensor.render.opacity = 1;
+                } else {
+                    // For other pipes, check if they fit on screen
+                    const isVisible = pos.x > 0 && pos.x < w;
+                    pipe.body.render.opacity = isVisible ? 1 : 0;
+                    pipe.leftWall.render.opacity = isVisible ? 1 : 0;
+                    pipe.topSensor.render.opacity = isVisible ? 1 : 0;
+                    
+                    // Disable collision for hidden pipes
+                    pipe.leftWall.isSensor = !isVisible;
+                    pipe.topSensor.isSensor = true;
+                }
+            }
+            
+            pipe.updateWallPosition();
+        });
+    }
+
+    if (deflector && deflectorPivot && deflectorConstraint) {
+        Body.setPosition(deflectorPivot, {
+            x: w/2,
+            y: -20
+        });
         
-        // Update SVGs
-        Body.setPosition(leftPipe.body, svgPositions.left);
-        Body.setPosition(rightPipe.body, svgPositions.right);
+        Body.setPosition(deflector, {
+            x: w/2,
+            y: -20
+        });
         
-        // Scale SVGs like background-size: auto
-        const scale = maxWidth/960;
-        Body.scale(leftPipe.body, scale, scale);
-        Body.scale(rightPipe.body, scale, scale);
-        
-        // Update walls relative to SVGs
-        leftPipe.updateWallPosition();
-        rightPipe.updateWallPosition();
+        deflectorConstraint.pointA = {
+            x: w/2,
+            y: -40
+        };
     }
   }
 
@@ -527,11 +529,31 @@
 
 
 <div 
-  bind:this={ viewport }
+  bind:this={viewport}
   bind:clientHeight={h}
   bind:clientWidth={w}
   class="viewport"
 >
+  {#if pipes && pipePositions}
+    {#each Object.keys(pipes) as type}
+      {@const pos = pipePositions[type]}
+      {@const pipe = pipes[type]}
+      {@const isVisible = pos.x > 0 && pos.x < w && pipe.body.render?.opacity > 0}
+      {#if isVisible}
+        <div 
+          class="pipe-counter" 
+          style="
+            left: {pos.x}px; 
+            top: {pos.y - 180}px;
+            transform: translate(-50%, -100%) scale({maxWidth/960});
+          "
+        >
+          {lifeCounts[type]}
+        </div>
+      {/if}
+    {/each}
+  {/if}
+
   <div class="info-panel terminal-text">
     <h1 class="header">
       <span class="left-title">MEMENTO MORI</span>
@@ -577,16 +599,6 @@
         <a href="#" class="value" on:click|preventDefault={toggleAbout}>About</a>
       </span>
     </div>
-    
-    <div class="info-row">
-      <span class="label">Good Life:</span>
-      <span class="value">{goodLifeCount}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">Bad Life:</span>
-      <span class="value">{badLifeCount}</span>
-    </div>
-
   </div>
 </div>
 
@@ -653,5 +665,15 @@
     width: 100%;
     padding: 0;
     overflow: visible;  // Ensure content isn't clipped
+  }
+
+  .pipe-counter {
+    position: absolute;
+    color: white;
+    font-family: 'Maven Pro', sans-serif;
+    font-size: 24px;
+    text-align: center;
+    pointer-events: none;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
   }
 </style>

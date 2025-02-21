@@ -1,20 +1,22 @@
 import { Bodies, Body, Composite } from 'matter-js';
 
+export type PipeType = 'noLife' | 'halfLife' | 'lowLife' | 'badLife' | 'goodLife' | 'highLife' | 'bestLife' | 'wonderfulLife';
+
 export class Pipe {
     body: Matter.Body;        // Visual SVG (like background)
     leftWall: Matter.Body;    // Collision wall
     topSensor: Matter.Body;    // Full-width sensor at top of pipe
     composite: Matter.Composite;
-    isGoodLife: boolean;
+    type: PipeType;
 
-    constructor(x: number, y: number, width: number, height: number, isGoodLife: boolean) {
-        // Visual SVG - using new dimensions
+    constructor(x: number, y: number, width: number, height: number, type: PipeType) {
+        // Visual SVG
         this.body = Bodies.rectangle(x, y, width, height, {
             isStatic: true,
             isSensor: true,
             render: {
                 sprite: {
-                    texture: isGoodLife ? '/judgement/goodLife.svg' : '/judgement/badLife.svg',
+                    texture: `/judgement/${type}.svg`,
                     xScale: width/195,     // New width: 195
                     yScale: height/369     // New height: 369
                 }
@@ -53,7 +55,7 @@ export class Pipe {
                     visible: true,
                     fillStyle: '#0000FF'
                 },
-                label: isGoodLife ? 'goodLifeSensor' : 'badLifeSensor'
+                label: `${type}Sensor`
             }
         );
 
@@ -64,7 +66,7 @@ export class Pipe {
             this.body          // SVG body last (will render in front)
         ]);
         
-        this.isGoodLife = isGoodLife;
+        this.type = type;
     }
 
     // Update both wall and sensor positions
@@ -79,7 +81,7 @@ export class Pipe {
         }
     }
 
-    static create(x: number, y: number, width: number, height: number, isGoodLife: boolean): Pipe {
-        return new Pipe(x, y, width, height, isGoodLife);
+    static create(x: number, y: number, width: number, height: number, type: PipeType): Pipe {
+        return new Pipe(x, y, width, height, type);
     }
 }

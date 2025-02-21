@@ -22,6 +22,13 @@ It's fairly simple. We have two projected population numbers for each year. So w
 ## Population Projection
 ![World Population Projection](/docs/charts/probability-projection.svg)
 
+## Animation
+Matter.js serves as the physics engine. The simulation creates two ragdolls per second, representing global population changes of approximately 0.84% per year (2024), which translates to about 4.2 births and 2 deaths per second worldwide.
+
+The ragdolls, designed as small Hampelmen, fall into the world and encounter a rotating deflector positioned just above the window's top edge. This deflector changes both its direction and rotation speed randomly.
+
+Users can interact with the simulation by grabbing fallen Hampelmen and tossing them into the sorting pipes.
+
 ## Important Note
 This token will never be made available for trading and is made only for educational and entertainment purposes. It has freeze and clawback enabled to keep options for further development open.
 
