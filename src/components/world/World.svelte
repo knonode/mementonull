@@ -161,8 +161,7 @@
       options: {
         background: 'transparent',
         wireframes: false,
-        // showDebug: true,
-        // showMousePosition: true,
+        hasBounds: true
       },
     });
     
@@ -544,7 +543,7 @@
           class="pipe-counter" 
           style="
             left: {pos.x}px; 
-            top: {pos.y - 180}px;
+            top: {pos.y + 25}px;  /* Add 10px to move down */
             transform: translate(-50%, -100%) scale({maxWidth/960});
           "
         >
@@ -671,7 +670,7 @@
     position: absolute;
     color: white;
     font-family: 'Maven Pro', sans-serif;
-    font-size: 24px;
+    font-size: 18px;
     text-align: center;
     pointer-events: none;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
