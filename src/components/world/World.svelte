@@ -18,6 +18,7 @@
   import AboutOverlay from '../overlays/AboutOverlay.svelte';
   import { apiStore } from '$lib/stores/apiStore';
   import { Pipe, type PipeType } from './pipe';
+  import PopulationCounter from './PopulationCounter.svelte';
   let viewport: HTMLElement;
   let engine: Engine;
   let render: Render;
@@ -36,10 +37,7 @@
     circulatingSupply: Number(0).toLocaleString(),
     lastTx: "--"
   };
-  let nextUpdateTime: number;
-  let countdown = "--:--";
   let isAboutOpen = false;
-  let timer: NodeJS.Timer;
   let isPaused = false;
   let runner: Runner;
 
@@ -70,7 +68,16 @@
 
   const MIN_CENTRAL_DISTANCE = 150; // Minimum pixels between bad and good life
 
-  let pipePositions: Record<PipeType, { x: number; y: number }> = {};
+  let pipePositions: Record<PipeType, { x: number; y: number }> = {
+    noLife: { x: 0, y: 0 },
+    halfLife: { x: 0, y: 0 },
+    lowLife: { x: 0, y: 0 },
+    badLife: { x: 0, y: 0 },
+    goodLife: { x: 0, y: 0 },
+    highLife: { x: 0, y: 0 },
+    bestLife: { x: 0, y: 0 },
+    wonderfulLife: { x: 0, y: 0 }
+  };
 
   function initializeTimer(lastFetchTime: number) {
     performance.mark('initTimer-start');
@@ -90,29 +97,10 @@
     console.log('Store update:', value);
     value.circulatingSupply = Number(value.circulatingSupply).toLocaleString();
     apiData = value;
-    if (value.lastFetchTime) {
-      nextUpdateTime = initializeTimer(value.lastFetchTime);
-      countdown = `${Math.floor(nextUpdateTime / 60)}:${(nextUpdateTime % 60).toString().padStart(2, '0')}`;
-      if (timer) clearInterval(timer);
-      timer = setInterval(updateCountdown, 1000);
-    }
     
     performance.mark('storeUpdate-end');
     performance.measure('Store Update', 'storeUpdate-start', 'storeUpdate-end');
   });
-  
-  function updateCountdown() {
-    performance.mark('countdown-start');
-    
-    if (nextUpdateTime > 0) {
-      nextUpdateTime--;
-      countdown = `${Math.floor(nextUpdateTime / 60)}:${(nextUpdateTime % 60).toString().padStart(2, '0')}`;
-      if (nextUpdateTime === 0) updateAssetInfo();
-    }
-    
-    performance.mark('countdown-end');
-    performance.measure('Countdown Update', 'countdown-start', 'countdown-end');
-  }
 
   function toggleAbout() {
     isAboutOpen = !isAboutOpen;
@@ -136,7 +124,6 @@
     window.addEventListener('keypress', handleKeyPress);
     return () => {
       window.removeEventListener('keypress', handleKeyPress);
-      if (timer) clearInterval(timer);
     };
   });
 
@@ -314,7 +301,7 @@
                                     y: -0.00002  // Reduced upward force
                                 });
                                 
-                                if (particle.render && particle.render.opacity <= 0) {
+                                if ((particle.render?.opacity ?? 0) <= 0) {
                                     Events.off(engine, 'beforeUpdate', updateParticle);
                                 }
                             });
@@ -510,22 +497,26 @@
 
   onMount(async () => {
     // Initial fetch
-    await updateAssetInfo();
+    await updateAssetInfo(false); // Don't schedule on initial load
     
-    // Set up interval for next top of the hour
-    const initialDelay = calculateNextUpdate();
-    setTimeout(() => {
-      updateAssetInfo();
-      // After first sync, set regular hourly interval
-      setInterval(updateAssetInfo, 3600000);
-    }, initialDelay);
+    // Set up visibility change handler
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        // When tab becomes visible, check if we need to update
+        const lastUpdate = apiData.lastFetchTime || 0;
+        const timeSinceUpdate = Date.now() - lastUpdate;
+        if (timeSinceUpdate >= 3600000) {
+          updateAssetInfo();
+        }
+      }
+    });
   });
 
+  // Add this helper function in the script section
+  function getPipeKeys(): PipeType[] {
+    return Object.keys(pipes) as PipeType[];
+  }
 </script>
-
-
-
-
 
 <div 
   bind:this={viewport}
@@ -534,10 +525,10 @@
   class="viewport"
 >
   {#if pipes && pipePositions}
-    {#each Object.keys(pipes) as type}
+    {#each getPipeKeys() as type}
       {@const pos = pipePositions[type]}
       {@const pipe = pipes[type]}
-      {@const isVisible = pos.x > 0 && pos.x < w && pipe.body.render?.opacity > 0}
+      {@const isVisible = pos.x > 0 && pos.x < w && (pipe.body.render?.opacity ?? 1) > 0}
       {#if isVisible}
         <div 
           class="pipe-counter" 
@@ -589,16 +580,20 @@
     </div>
 
     <div class="info-row">
-      <span class="label">Next txn in:</span>
-      <span class="value">{countdown}</span>
-    </div>
-
-    <div class="info-row">
       <span class="label">
-        <a href="#" class="value" on:click|preventDefault={toggleAbout}>About</a>
+        <button class="link-button value" on:click={toggleAbout}>About</button>
       </span>
     </div>
   </div>
+
+  <PopulationCounter 
+    currentValue={Number(apiData.circulatingSupply.replace(/,/g, ''))}
+    targetValue={Number(apiData.circulatingSupply.replace(/,/g, '')) + Number(apiData.lastTx.replace(/,/g, ''))}
+    on:reachedTarget={() => {
+      // When counter reaches target, update data
+      updateAssetInfo();
+    }}
+  />
 </div>
 
 <AboutOverlay isOpen={isAboutOpen} onClose={toggleAbout} />
@@ -674,5 +669,15 @@
     text-align: center;
     pointer-events: none;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .link-button {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;  /* This will inherit all font properties */
   }
 </style>

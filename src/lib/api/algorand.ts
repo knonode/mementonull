@@ -4,6 +4,11 @@ const MORI_ASA_ID = '1018187012';
 const RESERVE_ADDRESS = 'LOGOSKGASR2WUTFBRQQSGOJT7QBXWQV7HWGTLYRBVGLJQFVLH2BR5NGQZQ';
 const TOTAL_SUPPLY = 11200000000; // Fixed total supply
 
+interface AlgorandAsset {
+  'asset-id': number;
+  amount: number;
+}
+
 // Add cache check function
 function shouldFetchNewData(lastFetchTime: number): boolean {
   const now = Date.now();
@@ -27,6 +32,22 @@ try {
   console.error('localStorage not working:', error);
 }
 
+let scheduledFetch: NodeJS.Timeout;
+
+function getTimeUntilNextFetch(): number {
+  const now = Date.now();
+  const currentHour = Math.floor(now / 3600000) * 3600000;
+  const currentHourFetch = currentHour + (5 * 60 * 1000); // XX:05 this hour
+  const nextHourFetch = currentHour + 3600000 + (5 * 60 * 1000); // XX:05 next hour
+  
+  // If we haven't passed XX:05 this hour, wait for it
+  if (now < currentHourFetch) {
+    return currentHourFetch - now;
+  }
+  // Otherwise, wait for XX:05 next hour
+  return nextHourFetch - now;
+}
+
 export async function getCirculatingSupply() {
   try {
     // Get reserve balance - fixed URL structure
@@ -34,7 +55,7 @@ export async function getCirculatingSupply() {
     const reserveData = await reserveResponse.json();
     
     // Find MORI in the assets array
-    const moriAsset = reserveData.account.assets?.find(asset => 
+    const moriAsset = reserveData.account.assets?.find((asset: AlgorandAsset) => 
       asset['asset-id'].toString() === MORI_ASA_ID
     );
     
@@ -73,36 +94,51 @@ export async function getLastTransaction() {
 }
 
 // Modify existing functions to use cache
-export async function updateAssetInfo() {
-  let cached;
-  apiStore.subscribe(value => cached = value)();
-  
-  console.log('Current cached data:', cached);
-  
-  // Check if we have valid cached data
-  if (cached.lastFetchTime && !shouldFetchNewData(cached.lastFetchTime)) {
-    console.log('Using cached data');
-    return cached;
-  }
-
-  console.log('Fetching new data from API...');
+export async function updateAssetInfo(scheduleNext: boolean = true): Promise<void> {
   try {
+    // Clear any existing scheduled update
+    if (scheduledFetch) {
+      clearTimeout(scheduledFetch);
+    }
+
+    const now = new Date();
+    if (now.getMinutes() === 5) {
+      console.log('XX:05 API call executed at:', now.toLocaleTimeString());
+    }
+    
     const supply = await getCirculatingSupply();
     const txAmount = await getLastTransaction();
     
     const newData = {
       circulatingSupply: supply.toString(),
       lastTx: txAmount.toString(),
-      lastFetchTime: Date.now()  // Make sure this is being set
+      lastFetchTime: Date.now()
     };
     
-    // Single store update
     apiStore.set(newData);
-    
-    console.log('New data saved:', newData);
-    return newData;
+
+    if (scheduleNext) {
+      const delay = getTimeUntilNextFetch();
+      scheduledFetch = setTimeout(() => updateAssetInfo(), delay);
+    }
   } catch (error) {
     console.error('Error in updateAssetInfo:', error);
-    return cached;
+    if (scheduleNext) {
+      scheduledFetch = setTimeout(() => updateAssetInfo(), 60000);
+    }
   }
-} 
+}
+
+// Add visibility change handler
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      // Clear any existing timeout and schedule next update
+      if (scheduledFetch) {
+        clearTimeout(scheduledFetch);
+      }
+      const delay = getTimeUntilNextFetch();
+      scheduledFetch = setTimeout(() => updateAssetInfo(), delay);
+    }
+  });
+}

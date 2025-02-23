@@ -18,7 +18,7 @@
         Circulating supply is the current population number.
         Every hour newborn people minus deceased are added to circulating supply, 
         following a curve based on United Nations Population Division data 
-        projections.
+        projections. The animation drops 2 hampelmen every second, which corresponds to real life birth rate.
     </p>
     <p>
         The reserve account is funded to run until year 2100 or until 
